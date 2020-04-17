@@ -9,6 +9,8 @@ libraryDependencies ++= Seq(
   "org.apache.spark" % "spark-sql_2.11" % "2.4.5"
 )
 libraryDependencies += "com.amazon.deequ" % "deequ" % "1.0.2"
+libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.8" % "test"
+
 
 
 
