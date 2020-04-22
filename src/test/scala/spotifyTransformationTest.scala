@@ -2,10 +2,10 @@ import com.amazon.deequ.VerificationSuite
 import com.amazon.deequ.checks.{Check, CheckLevel, CheckStatus}
 import com.amazon.deequ.constraints.ConstraintStatus
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.SparkContext
+import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.scalatest.{FunSuite, GivenWhenThen}
-import spark.SpotifyTransformation.{getArtistAVGPopularity, parseLineRight}
+import spark.SpotifyTransformation.{getArtistAVGPopularity, parseLine, parseLineRight}
 
 class spotifyTransformationTest extends FunSuite with GivenWhenThen {
 
@@ -40,25 +40,51 @@ class spotifyTransformationTest extends FunSuite with GivenWhenThen {
     }
   }
 
-  test("SpotifyTransformation.getArtistAVGPopularity") {
-
+  def readFileAsRDD(path: String, parseF: String => (String, String, String, String, String, Int)) = {
     Logger.getLogger("org").setLevel(Level.ERROR)
+    val conf = new SparkConf().setAppName("PopularityByArtist")
+                              .setMaster("local[*]")
+    val sc = SparkContext.getOrCreate(conf)
+    val lines = sc.textFile(path)
+    lines.map(parseF)
+  }
 
-    val sc = new SparkContext("local[*]", "PopularityByArtist")
-    val lines = sc.textFile("src/main/resources/top10s.csv")
+  test("Artist popularity with parseLineRight") {
 
+    Given("the input file is read as an rdd")
+    val rdd = readFileAsRDD("src/main/resources/top10s.csv", parseLineRight)
     val spark = SparkSession.builder().getOrCreate()
     import spark.implicits._
 
-    val rdd = lines.map(parseLineRight)
-
-
+    When("I execute the get artist popularity transformation")
     val columnsInput = Seq("id","title","artist","genre","year","popularity")
     val inputDF = rdd.toDF(columnsInput:_*)
 
     val results = getArtistAVGPopularity(rdd)
     results.foreach(println)
 
+    Then("the result should meet the specified data quality characteristics")
+    val columnsResult = Seq("artist","popularity")
+    val outputDF = spark.createDataFrame(results).toDF(columnsResult:_*)
+
+    assert(testDF(inputDF,outputDF))
+  }
+
+  test("Artist popularity with parseLine") {
+
+    Given("the input file is read as an rdd")
+    val rdd = readFileAsRDD("src/main/resources/top10s.csv", parseLine)
+    val spark = SparkSession.builder().getOrCreate()
+    import spark.implicits._
+
+    When("I execute the get artist popularity transformation")
+    val columnsInput = Seq("id","title","artist","genre","year","popularity")
+    val inputDF = rdd.toDF(columnsInput:_*)
+
+    val results = getArtistAVGPopularity(rdd)
+    results.foreach(println)
+
+    Then("the result should meet the specified data quality characteristics")
     val columnsResult = Seq("artist","popularity")
     val outputDF = spark.createDataFrame(results).toDF(columnsResult:_*)
 
