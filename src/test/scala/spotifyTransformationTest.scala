@@ -4,24 +4,24 @@ import com.amazon.deequ.constraints.ConstraintStatus
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.scalatest.FunSuite
-import spark.SpotifyTransformation.{getArtistAVGPopularity, parseLine}
+import org.scalatest.{FunSuite, GivenWhenThen}
+import spark.SpotifyTransformation.{getArtistAVGPopularity, parseLineRight}
 
-class spotifyTransformationTest extends FunSuite {
+class spotifyTransformationTest extends FunSuite with GivenWhenThen {
 
   def testDF(inputDF: DataFrame, outputDF: DataFrame): Boolean ={
     val verificationResult = VerificationSuite()
       .onData(outputDF)
       .addCheck(
         Check(CheckLevel.Error, "unit testing my data")
-          .hasSize(_ >= 1) // we expect 5 rows
-          .isComplete("artist") // should never be NULL
-          .isUnique("artist") // should not contain duplicates
+          .hasSize(_ >= 1)
+          .isComplete("artist")
+          .isUnique("artist")
           .isContainedIn("artist",
             inputDF.select("artist").collect().map(_.getString(0)))
           .isComplete("popularity") // should never be NULL
           .isNonNegative("popularity")
-          .hasMin("popularity",_ == 1))
+          .hasMin("popularity",_ == 0))
       .run()
 
     if (verificationResult.status == CheckStatus.Success) {
@@ -41,6 +41,7 @@ class spotifyTransformationTest extends FunSuite {
   }
 
   test("SpotifyTransformation.getArtistAVGPopularity") {
+
     Logger.getLogger("org").setLevel(Level.ERROR)
 
     val sc = new SparkContext("local[*]", "PopularityByArtist")
@@ -49,7 +50,7 @@ class spotifyTransformationTest extends FunSuite {
     val spark = SparkSession.builder().getOrCreate()
     import spark.implicits._
 
-    val rdd = lines.map(parseLine)
+    val rdd = lines.map(parseLineRight)
 
 
     val columnsInput = Seq("id","title","artist","genre","year","popularity")
